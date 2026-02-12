@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>skriveprogram.no</title>
+
+  <style>
+    :root {
+      --card: #f5f5f5;
+      --text: #333333;
+      --muted: #666666;
+      --accent: #007bff;
+      --border: #cccccc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #eee;
+      padding: 26px 0;
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 18px;
+    }
+
+    /* Toolbar */
+    .writer-toolbar {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      position: sticky;
+      top: 12px;
+      z-index: 10;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .tool-left { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; width: 100%; }
+
+    .select-wrap { position: relative; display: inline-block; }
+
+    .writer-toolbar select, .writer-btn {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 15px;
+      min-height: 40px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .writer-toolbar select { padding-right: 34px; appearance: none; }
+    .select-wrap::after { content: "▾"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted); }
+
+    .writer-btn.icon { width: 44px; text-align: center; display: flex; align-items: center; justify-content: center; }
+    .writer-btn:hover { background: #e9e9e9; }
+    .writer-btn.active { background: #e0e0e0; border-color: #999; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+
+    /* Papir */
+    .paper-area { margin-top: 14px; display: flex; justify-content: center; }
+.paper {
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 20mm; /* Vi setter faste marger her */
+  margin: 0 auto;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  position: relative;
+}
+
+  .editor {
+  outline: none;
+  min-height: calc(297mm - 50mm);
+  font-size: 16px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* Denne linjen tvinger fonten på alt innhold */
+  font-family: 'Times New Roman', Times, serif 
+}
+    /* Symboler */
+    .sym-popover { position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 9999; }
+    .sym-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .sym-item { border: 1px solid var(--border); background: #fff; border-radius: 10px; padding: 8px; cursor: pointer; text-align: center; }
+
+    @media print {
+      body { background: white; padding: 0; }
+    .writer-toolbar, .writer-footer, .writer-note, .sym-popover, .site-title { 
+  display: none !important; 
+}
+
+      .paper { box-shadow: none; border: none; width: 100%; margin: 0; padding: 0; }
+      .page { max-width: 100%; padding: 0; }
+    }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0; /* Fjerner nettleserens standardmarger */
+  }
+
+  body {
+    padding: 0;
+    background: white;
+  }
+
+  .paper {
+    padding: 20mm !important; /* Tvinger våre 20mm marger inn i PDF-en */
+    width: 210mm;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    float: none;
+  }
+
+   .paper {
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .editor {
+    min-height: 0 !important;
+  }
+
+
+  
+  /* Skjul sideskift-linjen på selve utskriften */
+  .editor {
+    background-image: none !important;
+  }
+}
+    
+/* Stil for bilder som limes inn */
+.editor img {
+  max-width: 100%;
+  height: auto;
+  cursor: pointer;
+  display: block;
+  margin: 10px;
+  border: 2px solid transparent;
+  transition: border 0.2s;
+}
+
+/* Markering når bildet er valgt */
+.editor img:focus {
+  outline: none;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+}
+
+/* Container som holder bildet mens vi endrer størrelse */
+.resizer-container {
+  display: inline-block;
+  position: relative;
+  line-height: 0;
+  cursor: move;
+  margin: 10px;
+}
+
+/* Selve bildet inni containeren */
+.resizer-container img {
+  display: block;
+  margin: 0 !important; /* Containeren styrer margin nå */
+}
+
+/* Det lille håndtaket i hjørnet */
+.resizer-handle {
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  cursor: nwse-resize;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+
+
+
+  </style>
+</head>
+<body>
+
+<div class="page">
+<h1 class="site-title">skriveprogram.no</h1>
+
+
+  <div class="writer-toolbar">
+    <div class="tool-left">
+      <span class="select-wrap">
+        <select id="block">
+          <option value="P">Paragraf</option>
+          <option value="H1">Overskrift 1</option>
+          <option value="H2">Overskrift 2</option>
+        </select>
+      </span>
+
+      <span class="select-wrap">
+        <select id="fontSize">
+          <option value="1">Liten</option>
+          <option value="3" selected>Normal</option>
+          <option value="4">Stor</option>
+          <option value="5">Ekstra stor</option>
+        </select>
+      </span>
+
+     <span class="select-wrap">
+  <select id="fontName">
+   <option value="Times New Roman" selected>Times New Roman</option>
+    <option value="Arial">Arial</option>
+  </select>
+</span>
+
+      <button class="writer-btn icon" id="boldBtn" onclick="exec('bold')"><b>B</b></button>
+      <button class="writer-btn icon" id="italicBtn" onclick="exec('italic')"><i>I</i></button>
+      <button class="writer-btn icon" id="underlineBtn" onclick="exec('underline')"><u>U</u></button>
+      
+      <button class="writer-btn icon" id="alignBtn" onclick="toggleAlign()">⟸</button>
+      
+      <button class="writer-btn icon" id="symBtn">Ω</button>
+      <button class="writer-btn icon" id="ulBtn" onclick="exec('insertUnorderedList')" title="Punktliste">•</button>
+<button class="writer-btn icon" id="olBtn" onclick="exec('insertOrderedList')" title="Nummerert liste">1.</button>
+      <button class="writer-btn icon" onclick="exec('undo')">↶</button>
+      <button class="writer-btn icon" onclick="exec('redo')">↷</button>
+    </div>
+  </div>
+
+  <div class="paper-area">
+    <div class="paper">
+      <div id="editor" class="editor" contenteditable="true" spellcheck="true"></div>
+    </div>
+  </div>
+
+<div class="writer-footer">
+  <div id="saveStatus" style="font-size: 12px; color: var(--muted);">Ikke lagret i nettleser</div>
+  <div>
+    <button class="writer-btn" id="saveBtn" type="button" style="background: #28a745; color: white; border: none;">Lagre i nettleser</button>
+    <button class="writer-btn" id="clearBtn" type="button">Tøm arket</button>
+    <button class="writer-btn" id="pdfBtn" type="button">Skriv ut / lagre som PDF</button>
+  </div>
+</div>
+</div>
+<script>
+  const editor = document.getElementById('editor');
+  const saveBtn = document.getElementById('saveBtn'); // Henter den nye lagre-knappen
+  const pdfBtn = document.getElementById('pdfBtn');
+  const saveStatus = document.getElementById('saveStatus'); // Henter status-teksten
+  
+  const SYMBOLS = ["²","₂","Ω","≤","∞","∆","π","μ","η","φ", "±", "≈", "∠", "ρ", "√",];
+  let symPopover = null;
+  const alignIcons = ["⟸", "≡", "⟹"];
+  const alignCmds = ["justifyLeft", "justifyCenter", "justifyRight"];
+  let alignState = 0;
+
+  const STORAGE_KEY = 'ofel-writer';
+
+  // Last lagret innhold ved oppstart
+  editor.innerHTML = localStorage.getItem(STORAGE_KEY) || '<p style="font-family: \'Times New Roman\', serif;"><br></p>';
+
+  // Legg til dette rett etter: editor.innerHTML = ...
+  if (localStorage.getItem(STORAGE_KEY)) {
+    saveStatus.innerText = "Lagret innhold lastet inn";
+    saveStatus.style.color = "#28a745";
+  }
+
+  // Base-funksjon for kommandoer (fjernet automatisk lagring herfra)
+  function exec(cmd, val = null) {
+    document.execCommand(cmd, false, val);
+    updateToolbarState();
+    editor.focus();
+    
+    // Indiker at det er gjort endringer som ikke er lagret permanent
+    if (saveStatus) {
+      saveStatus.innerText = "Endringer ikke lagret...";
+      saveStatus.style.color = "#dc3545"; // Rød
+    }
+  }
+
+  // Manuell lagring når man trykker på knappen
+  if (saveBtn) {
+    saveBtn.onclick = () => {
+      localStorage.setItem(STORAGE_KEY, editor.innerHTML);
+      if (saveStatus) {
+        saveStatus.innerText = "Lagret i nettleser!";
+        saveStatus.style.color = "#28a745"; // Grønn
+      }
+    };
+  }
+
+  if (pdfBtn) {
+    pdfBtn.onclick = () => {
+      editor.blur(); // Fjerner markøren før utskrift
+      window.print();
+    };
+  }
+
+  function toggleAlign() {
+    alignState = (alignState + 1) % 3;
+    exec(alignCmds[alignState]);
+  }
+
+  function updateToolbarState() {
+    // Knapper
+    document.getElementById('boldBtn').classList.toggle('active', document.queryCommandState('bold'));
+    document.getElementById('italicBtn').classList.toggle('active', document.queryCommandState('italic'));
+    document.getElementById('underlineBtn').classList.toggle('active', document.queryCommandState('underline'));
+    document.getElementById('ulBtn').classList.toggle('active', document.queryCommandState('insertUnorderedList'));
+    document.getElementById('olBtn').classList.toggle('active', document.queryCommandState('insertOrderedList'));
+
+    // Veksle-knapp for justering
+    if (document.queryCommandState('justifyCenter')) alignState = 1;
+    else if (document.queryCommandState('justifyRight')) alignState = 2;
+    else alignState = 0;
+    document.getElementById('alignBtn').innerText = alignIcons[alignState];
+
+    // Dropdowns
+    try {
+      const size = document.queryCommandValue('fontSize');
+      if (size) document.getElementById('fontSize').value = size;
+
+      const font = document.queryCommandValue('fontName').replace(/"/g, "");
+      const fontSelect = document.getElementById('fontName');
+      
+      // Sjekk om fonten faktisk finnes i listen vår før vi endrer verdien
+      if (font && [...fontSelect.options].some(opt => opt.value === font)) {
+        fontSelect.value = font;
+      }
+    } catch(e) {}
+  } // <-- VIKTIG: updateToolbarState avsluttes her
+
+  // Gi beskjed om uslagrede endringer ved tasting
+  editor.addEventListener('input', () => {
+    if (saveStatus) {
+      saveStatus.innerText = "Endringer ikke lagret...";
+      saveStatus.style.color = "#dc3545";
+    }
+  });
+
+  // Varsel ved lukking av fane hvis det er innhold
+  window.addEventListener('beforeunload', (e) => {
+    if (editor.innerText.trim().length > 0) {
+      e.preventDefault();
+      e.returnValue = ''; 
+    }
+  });
+
+  document.getElementById('fontSize').onchange = (e) => exec('fontSize', e.target.value);
+  document.getElementById('fontName').onchange = (e) => exec('fontName', e.target.value);
+  document.getElementById('block').onchange = (e) => exec('formatBlock', e.target.value);
+  
+  // Tøm sletter nå også fra localStorage
+  document.getElementById('clearBtn').onclick = () => { 
+    if(confirm('Er du sikker på at du vil tømme alt?')) { 
+      // Legg inn font-stilen her også:
+      editor.innerHTML = '<p style="font-family: \'Times New Roman\', serif;"><br></p>'; 
+      localStorage.removeItem(STORAGE_KEY); 
+      if (saveStatus) saveStatus.innerText = "Slettet";
+    } 
+  };
+
+  // Tab & Backspace
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') { 
+      e.preventDefault(); 
+      if (document.queryCommandState('insertUnorderedList') || document.queryCommandState('insertOrderedList')) {
+        exec('indent');
+      } else {
+        exec('insertText', '    ');
+      }
+    }
+    if (e.key === 'Backspace') {
+      const sel = window.getSelection();
+      if (sel.isCollapsed && sel.anchorNode.nodeType === 3) {
+        if (sel.anchorNode.textContent.substring(sel.anchorOffset - 4, sel.anchorOffset) === "    ") {
+          e.preventDefault();
+          for(let i=0; i<4; i++) document.execCommand('delete');
+        }
+      }
+    }
+  });
+
+// Automatisk gå fra H1/H2 til Paragraf når man trykker Enter
+editor.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+
+  let node = sel.anchorNode;
+  if (!node) return;
+
+  // Gå opp til nærmeste element-node
+  while (node && node.nodeType !== 1) {
+    node = node.parentNode;
+  }
+
+  if (!node) return;
+
+  const tag = node.tagName;
+
+  if (tag === 'H1' || tag === 'H2') {
+    // Vent til nettleseren har laget ny linje
+    setTimeout(() => {
+      document.execCommand('formatBlock', false, 'P');
+      document.getElementById('block').value = 'P';
+      document.getElementById('fontSize').value = '3'; // Normal størrelse
+    }, 0);
+  }
+});
+
+
+  // Symbolmeny
+  const symBtn = document.getElementById('symBtn');
+  symBtn.onclick = (e) => {
+    let pop = document.querySelector('.sym-popover');
+    if (pop) return pop.remove();
+    pop = document.createElement('div');
+    pop.className = 'sym-popover';
+    const grid = document.createElement('div');
+    grid.className = 'sym-grid';
+    SYMBOLS.forEach(s => {
+      const b = document.createElement('div');
+      b.className = 'sym-item';
+      b.innerText = s;
+      b.onclick = () => { exec('insertText', s); pop.remove(); };
+      grid.appendChild(b);
+    });
+    pop.appendChild(grid);
+    document.body.appendChild(pop);
+    const rect = symBtn.getBoundingClientRect();
+    pop.style.top = rect.bottom + window.scrollY + 8 + 'px';
+    pop.style.left = rect.left + 'px';
+  };
+
+  document.addEventListener('mousedown', (e) => {
+    const pop = document.querySelector('.sym-popover');
+    if (pop && !pop.contains(e.target) && e.target !== symBtn) pop.remove();
+  });
+
+  editor.addEventListener('keyup', updateToolbarState);
+  editor.addEventListener('mouseup', updateToolbarState);
+
+  // ===============================
+  // CTRL+V: Lim inn bilde + resize
+  // ===============================
+  editor.addEventListener('paste', function (e) {
+    var clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData || !clipboardData.items) return;
+
+    var items = clipboardData.items;
+    var file = null;
+
+    // Finn første bilde i clipboard
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image/') === 0) {
+        file = items[i].getAsFile();
+        break;
+      }
+    }
+
+    if (!file) return; // ikke bilde -> la vanlig paste skje
+
+    e.preventDefault();
+
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = document.createElement('img');
+      img.src = reader.result;
+
+      // Start-størrelse (kan endres)
+      img.style.width = '250px';
+      img.style.height = 'auto';
+
+      // Sett inn der markøren er
+      insertNodeAtCaret(img);
+
+      // Wrap + resize-håndtak + flytting
+      if (typeof setupImageResizer === 'function') setupImageResizer(img);
+
+      // Oppdater "ikke lagret"
+      if (saveStatus) {
+        saveStatus.innerText = "Endringer ikke lagret...";
+        saveStatus.style.color = "#dc3545";
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function insertNodeAtCaret(node) {
+    editor.focus();
+
+    var sel = window.getSelection ? window.getSelection() : null;
+    if (!sel || sel.rangeCount === 0) {
+      editor.appendChild(node);
+      editor.appendChild(document.createElement('br'));
+      return;
+    }
+
+    var range = sel.getRangeAt(0);
+
+    // Hvis markøren ikke er inne i editor, legg til på slutten
+    if (!editor.contains(range.commonAncestorContainer)) {
+      editor.appendChild(node);
+      editor.appendChild(document.createElement('br'));
+      return;
+    }
+
+    range.deleteContents();
+    range.insertNode(node);
+
+    // Linjeskift etter bildet så man kan skrive videre
+    var br = document.createElement('br');
+    if (node.nextSibling) {
+      node.parentNode.insertBefore(br, node.nextSibling);
+    } else {
+      node.parentNode.appendChild(br);
+    }
+
+    // Flytt caret etter <br>
+    range.setStartAfter(br);
+    range.setEndAfter(br);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  // Wrap gamle bilder ved oppstart (fra localStorage)
+  (function initExistingImages() {
+    var imgs = editor.querySelectorAll('img');
+    for (var i = 0; i < imgs.length; i++) {
+      var img = imgs[i];
+      if (img.closest && img.closest('.resizer-container')) continue;
+      if (img.dataset && img.dataset.handled === "true") continue;
+      setupImageResizer(img);
+    }
+  })();
+
+  // ===============================
+  // Bilde wrapper + resize + flytt
+  // ===============================
+  function setupImageResizer(img) {
+    img.dataset.handled = "true";
+
+    // Opprett container
+    const wrapper = document.createElement('div');
+    wrapper.className = 'resizer-container';
+    wrapper.style.float = 'left'; // venstre som standard
+    wrapper.contentEditable = "false";
+    wrapper.setAttribute('draggable', 'true');
+
+    img.parentNode.insertBefore(wrapper, img);
+    wrapper.appendChild(img);
+
+    const handle = document.createElement('div');
+    handle.className = 'resizer-handle';
+    wrapper.appendChild(handle);
+
+    // --- RESIZE (Pointer Events: stabilt) ---
+    handle.style.touchAction = 'none';
+
+    handle.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const wasDraggable = wrapper.getAttribute('draggable');
+      wrapper.setAttribute('draggable', 'false');
+
+      const startX = e.clientX;
+      const startWidth = img.clientWidth;
+
+      handle.setPointerCapture(e.pointerId);
+
+      const onMove = (pe) => {
+        const newWidth = startWidth + (pe.clientX - startX);
+        img.style.width = Math.max(30, newWidth) + 'px';
+      };
+
+      const onUp = (pe) => {
+        try { handle.releasePointerCapture(pe.pointerId); } catch(_) {}
+
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+
+        wrapper.setAttribute('draggable', wasDraggable || 'true');
+      };
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    });
+
+    // --- FLYTTING (drag & drop uten duplisering) ---
+    wrapper.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', 'move');
+      e.dataTransfer.effectAllowed = 'move';
+      wrapper.classList.add('dragging');
+      wrapper.style.opacity = "0.5";
+    });
+
+    wrapper.addEventListener('dragend', () => {
+      wrapper.classList.remove('dragging');
+      wrapper.style.opacity = "1";
+    });
+
+    // Sett opp drop-håndtering kun én gang
+    if (!editor.dataset.imageDndReady) {
+      editor.dataset.imageDndReady = "true";
+
+      editor.addEventListener('dragover', (e) => {
+        if (!document.querySelector('.resizer-container.dragging')) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      });
+
+      editor.addEventListener('drop', (e) => {
+        const dragging = document.querySelector('.resizer-container.dragging');
+        if (!dragging) return;
+
+        e.preventDefault();
+
+        let range = null;
+
+        if (document.caretRangeFromPoint) {
+          range = document.caretRangeFromPoint(e.clientX, e.clientY);
+        } else if (document.caretPositionFromPoint) {
+          const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+          if (pos) {
+            range = document.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+          }
+        }
+
+        if (!range || !editor.contains(range.commonAncestorContainer)) {
+          if (dragging.parentNode) dragging.parentNode.removeChild(dragging);
+          editor.appendChild(dragging);
+          editor.appendChild(document.createElement('br'));
+          return;
+        }
+
+        if (dragging.parentNode) dragging.parentNode.removeChild(dragging);
+        range.insertNode(dragging);
+
+        const br = document.createElement('br');
+        if (dragging.nextSibling) dragging.parentNode.insertBefore(br, dragging.nextSibling);
+        else dragging.parentNode.appendChild(br);
+
+        const sel = window.getSelection();
+        if (sel) {
+          const r = document.createRange();
+          r.setStartAfter(br);
+          r.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(r);
+        }
+      });
+    }
+
+    // --- DOBBELTKLIKK: bytt venstre/høyre ---
+    wrapper.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      wrapper.style.float = wrapper.style.float === 'right' ? 'left' : 'right';
+    });
+  }
+</script>
+
+
+</body>
+</html>
