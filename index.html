@@ -69,6 +69,25 @@
     .writer-btn:hover { background: #e9e9e9; }
     .writer-btn.active { background: #e0e0e0; border-color: #999; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
 
+
+
+    /* PDF-knapp med oransje ramme */
+/* PDF-knapp med oransje bakgrunn */
+#pdfBtn {
+  background: rgb(255, 203, 120);
+  color: #000000;
+  border: none;
+ 
+}
+
+#pdfBtn:hover {
+ 
+  background: #F5A623;
+}
+
+
+
+
     /* Papir */
     .paper-area { margin-top: 14px; display: flex; justify-content: center; }
 .paper {
@@ -191,6 +210,13 @@
   border: 2px solid white;
 }
 
+.site-credit {
+  text-align: center;
+  font-size: 13px;
+  color: #777;
+  margin-top: 30px;
+}
+
 
 
 
@@ -239,6 +265,7 @@
 <button class="writer-btn icon" id="olBtn" onclick="exec('insertOrderedList')" title="Nummerert liste">1.</button>
       <button class="writer-btn icon" onclick="exec('undo')">↶</button>
       <button class="writer-btn icon" onclick="exec('redo')">↷</button>
+      <button class="writer-btn" id="pdfBtn" type="button">Skriv ut / lagre som PDF</button>
     </div>
   </div>
 
@@ -247,13 +274,21 @@
       <div id="editor" class="editor" contenteditable="true" spellcheck="true"></div>
     </div>
   </div>
-
+<br>
 <div class="writer-footer">
   <div id="saveStatus" style="font-size: 12px; color: var(--muted);">Ikke lagret i nettleser</div>
   <div>
-    <button class="writer-btn" id="saveBtn" type="button" style="background: #28a745; color: white; border: none;">Lagre i nettleser</button>
+    <button class="writer-btn" id="saveBtn" type="button" >Lagre i nettleser</button>
     <button class="writer-btn" id="clearBtn" type="button">Tøm arket</button>
-    <button class="writer-btn" id="pdfBtn" type="button">Skriv ut / lagre som PDF</button>
+
+    <br>
+
+    <div class="site-credit">
+  Laget av Helge i 2026 <br> <br> Skriveprogram.no bruker Simple Analytics for anonym besøksstatistikk. <br>
+Ingen personopplysninger lagres og ingen cookies brukes.
+</div>
+
+    
   </div>
 </div>
 </div>
@@ -679,9 +714,6 @@ editor.addEventListener('keydown', function(e) {
     });
   }
 </script>
-
-  <!-- 100% privacy-first analytics -->
-<script async src="https://scripts.simpleanalyticscdn.com/latest.js"></script>
 
 
 </body>
