@@ -97,7 +97,7 @@
   min-height: 297mm;
   background: #fff;
   border: 1px solid #ddd;
-  padding: 20mm; /* Vi setter faste marger her */
+  padding: 20mm 20mm 20mm 20mm; /* Topp, Høyre, Bunn, Venstre */
   margin: 0 auto;
   box-shadow: 0 6px 20px rgba(0,0,0,0.15);
   position: relative;
@@ -118,53 +118,67 @@
     .sym-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
     .sym-item { border: 1px solid var(--border); background: #fff; border-radius: 10px; padding: 8px; cursor: pointer; text-align: center; }
 
-    @media print {
-      body { background: white; padding: 0; }
-    .writer-toolbar, .writer-footer, .writer-note, .sym-popover, .site-title { 
-  display: none !important; 
+    .sym-item {
+  user-select: none; /* Hindrer blå markering ved klikk */
+  transition: background 0.1s;
+}
+.sym-item:active {
+  background: #007bff;
+  color: white;
 }
 
-      .paper { box-shadow: none; border: none; width: 100%; margin: 0; padding: 0; }
-      .page { max-width: 100%; padding: 0; }
-    }
+/* Hindrer at bilder og resizer-bokser blir delt mellom to sider */
+.resizer-container, img {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
 
-@media print {
+ @media print {
+  /* 1. Kontroller selve papiret */
   @page {
     size: A4;
-    margin: 0; /* Fjerner nettleserens standardmarger */
+    margin: 20mm 20mm 20mm 20mm;; /* Dette gir marger på ALLE sider i PDF-en */
   }
 
-  body {
-    padding: 0;
-    background: white;
+  /* 2. Fjern alt som ikke skal være med på trykk */
+  .writer-toolbar, .writer-footer, .site-title, .resizer-handle, #saveStatus { 
+    display: none !important; 
   }
 
-  .paper {
-    padding: 20mm !important; /* Tvinger våre 20mm marger inn i PDF-en */
-    width: 210mm;
-    border: none;
-    box-shadow: none;
+  body { 
+    background: white; 
+    padding: 0; 
+    margin: 0;
+  }
+
+  .page { 
+    max-width: 100%; 
+    padding: 0; 
+    margin: 0;
+  }
+
+  .paper { 
+    box-shadow: none; 
+    border: none; 
+    width: 100%; 
+    padding: 0 !important; /* Vi bruker @page-margen i stedet for padding her */
     margin: 0;
     float: none;
   }
 
-   .paper {
-    min-height: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  .editor {
+.editor {
     min-height: 0 !important;
+    overflow: visible !important;
+    padding-top: 0 !important; /* Tvinger innholdet helt til topps i PDF-en */
+    margin-top: 0 !important;
   }
-
-
+}
   
   /* Skjul sideskift-linjen på selve utskriften */
   .editor {
     background-image: none !important;
   }
-}
+
     
 /* Stil for bilder som limes inn */
 .editor img {
@@ -220,7 +234,12 @@
 }
 
 
-
+/* Nullstill standard marger på overskrifter i editoren */
+.editor h1, .editor h2, .editor h3, .editor p, .editor div {
+  margin-top: 0 !important;   /* Fjerner luften over elementet */
+  margin-bottom: 0.5em;       /* Beholder litt luft under for lesbarhet */
+  padding-top: 0 !important;
+}
 
   </style>
 </head>
@@ -232,13 +251,7 @@
 
   <div class="writer-toolbar">
     <div class="tool-left">
-      <span class="select-wrap">
-        <select id="block">
-          <option value="P">Paragraf</option>
-          <option value="H1">Overskrift 1</option>
-          <option value="H2">Overskrift 2</option>
-        </select>
-      </span>
+      
 
       <span class="select-wrap">
         <select id="fontSize">
@@ -246,6 +259,7 @@
           <option value="3" selected>Normal</option>
           <option value="4">Stor</option>
           <option value="5">Ekstra stor</option>
+          <option value="7">Overskrift</option>
         </select>
       </span>
 
@@ -260,8 +274,9 @@
       <button class="writer-btn icon" id="italicBtn" onclick="exec('italic')"><i>I</i></button>
       <button class="writer-btn icon" id="underlineBtn" onclick="exec('underline')"><u>U</u></button>
       
-      <button class="writer-btn icon" id="alignBtn" onclick="toggleAlign()">⟸</button>
       
+    
+
       <button class="writer-btn icon" id="symBtn">Ω</button>
       <button class="writer-btn icon" id="ulBtn" onclick="exec('insertUnorderedList')" title="Punktliste">•</button>
 <button class="writer-btn icon" id="olBtn" onclick="exec('insertOrderedList')" title="Nummerert liste">1.</button>
@@ -287,7 +302,7 @@
 
     <div class="site-credit">
   Laget av Helge i 2026 <br> <br> Skriveprogram.no bruker Simple Analytics for anonym besøksstatistikk. <br>
-Ingen personopplysninger lagres og ingen cookies brukes.
+Ingen lagring av personopplysninger og ingen cookies.
 </div>
 
     
@@ -310,6 +325,7 @@ Ingen personopplysninger lagres og ingen cookies brukes.
 
   // Last lagret innhold ved oppstart
   editor.innerHTML = localStorage.getItem(STORAGE_KEY) || '<p style="font-family: \'Times New Roman\', serif;"><br></p>';
+editor.querySelectorAll('img').forEach(setupImageResizer);
 
   // Legg til dette rett etter: editor.innerHTML = ...
   if (localStorage.getItem(STORAGE_KEY)) {
@@ -400,7 +416,7 @@ Ingen personopplysninger lagres og ingen cookies brukes.
 
   document.getElementById('fontSize').onchange = (e) => exec('fontSize', e.target.value);
   document.getElementById('fontName').onchange = (e) => exec('fontName', e.target.value);
-  document.getElementById('block').onchange = (e) => exec('formatBlock', e.target.value);
+ 
   
   // Tøm sletter nå også fra localStorage
   document.getElementById('clearBtn').onclick = () => { 
@@ -464,36 +480,69 @@ editor.addEventListener('keydown', function(e) {
 
 
   // Symbolmeny
-  const symBtn = document.getElementById('symBtn');
-  symBtn.onclick = (e) => {
-    let pop = document.querySelector('.sym-popover');
-    if (pop) return pop.remove();
-    pop = document.createElement('div');
-    pop.className = 'sym-popover';
-    const grid = document.createElement('div');
-    grid.className = 'sym-grid';
-    SYMBOLS.forEach(s => {
-      const b = document.createElement('div');
-      b.className = 'sym-item';
-      b.innerText = s;
-      b.onclick = () => { exec('insertText', s); pop.remove(); };
-      grid.appendChild(b);
-    });
-    pop.appendChild(grid);
-    document.body.appendChild(pop);
-    const rect = symBtn.getBoundingClientRect();
-    pop.style.top = rect.bottom + window.scrollY + 8 + 'px';
-    pop.style.left = rect.left + 'px';
-  };
+  let lastSelection = null;
 
-  document.addEventListener('mousedown', (e) => {
-    const pop = document.querySelector('.sym-popover');
-    if (pop && !pop.contains(e.target) && e.target !== symBtn) pop.remove();
+// Lagre posisjon når brukeren klikker eller skriver i editor
+['keyup', 'mouseup', 'pointerup'].forEach(evt => {
+  editor.addEventListener(evt, () => {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+      lastSelection = sel.getRangeAt(0).cloneRange();
+    }
+  });
+});
+
+const symBtn = document.getElementById('symBtn');
+symBtn.onclick = (e) => {
+  let pop = document.querySelector('.sym-popover');
+  if (pop) return pop.remove();
+
+  pop = document.createElement('div');
+  pop.className = 'sym-popover';
+  const grid = document.createElement('div');
+  grid.className = 'sym-grid';
+
+  SYMBOLS.forEach(s => {
+    const b = document.createElement('div');
+    b.className = 'sym-item';
+    b.innerText = s;
+    b.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      // Gjenopprett markøren der den var
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      if (lastSelection) {
+        sel.addRange(lastSelection);
+      } else {
+        editor.focus(); // Fallback hvis ingen posisjon er lagret
+      }
+
+      // Sett inn symbolet
+      document.execCommand('insertText', false, s);
+      
+      // Oppdater lagret posisjon til rett etter det nye tegnet
+      lastSelection = sel.getRangeAt(0).cloneRange();
+      
+      pop.remove();
+      
+      // Trigger lagre-status
+      if (saveStatus) {
+        saveStatus.innerText = "Endringer ikke lagret...";
+        saveStatus.style.color = "#dc3545";
+      }
+    };
+    grid.appendChild(b);
   });
 
-  editor.addEventListener('keyup', updateToolbarState);
-  editor.addEventListener('mouseup', updateToolbarState);
-
+  pop.appendChild(grid);
+  document.body.appendChild(pop);
+  
+  const rect = symBtn.getBoundingClientRect();
+  pop.style.top = rect.bottom + window.scrollY + 8 + 'px';
+  pop.style.left = rect.left + 'px';
+};
   // ===============================
   // CTRL+V: Lim inn bilde + resize
   // ===============================
